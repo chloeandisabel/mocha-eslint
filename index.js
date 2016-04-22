@@ -1,9 +1,9 @@
 var CLIEngine = require('eslint').CLIEngine;
 var chalk = require('chalk');
 var globAll = require('glob-all');
-var replaceAll = require("replaceall");
 var cli = new CLIEngine({});
-
+var fs = require('fs');
+var path = require('path');
 
 function test(p, opts) {
   it('should have no errors in ' + p, function () {
@@ -11,10 +11,6 @@ function test(p, opts) {
 
     if (opts && opts.timeout) {
       this.timeout(opts.timeout);
-    }
-
-    if (opts && opts.slow) {
-      this.slow(opts.slow);
     }
 
     if (opts && opts.formatter) {
@@ -30,19 +26,24 @@ function test(p, opts) {
     var report = cli.executeOnFiles([p]);
     var formatter = cli.getFormatter(format);
 
-    if (report) {
-      if (report.errorCount > 0 || (opts.strict && report.warningCount > 0)) {
-        throw new Error(
-          chalk.red('Code did not pass lint rules') +
-          // remove process.cwd() to convert absolute to relative paths
-          replaceAll(process.cwd() + '/', '', formatter(report.results))
-        );
-      } else if (
-        warn &&
-        report.warningCount > 0
-      ) {
-        console.log(formatter(report.results));
+    if (
+      report &&
+      report.errorCount > 0
+    ) {
+      // remove process.cwd() to convert absolute to relative paths
+      var result = formatter(report.results).replace(process.cwd() + '/', '');
+      if (opts && opts.logPath && opts.logExt) {
+        fs.writeFile(path.join(opts.logPath, p + '.' + opts.logExt), result);
+        throw new Error(chalk.red('Code did not pass lint rules'));
+      } else {
+        throw new Error(chalk.red('Code did not pass lint rules') + result);
       }
+    } else if (
+      warn &&
+      report &&
+      report.warningCount > 0
+    ) {
+      console.log(formatter(report.results));
     }
 
   });
